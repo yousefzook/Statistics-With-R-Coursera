@@ -1,0 +1,209 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 8
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+### Load data
+
+Make sure your data and R Markdown files are in the same directory. When loaded
+your data file will be called `brfss2013`.
+
+```{r load-data}
+load("brfss2013.RData")
+```
+
+
+
+* * *
+
+## Part 1: Data
+
+#### Showing data size
+```{r show-data}
+nrow(brfss2013)
+names(brfss2013)
+```
+
+The data is collected randomly by landline telephone and cellular telephone, So this is a stratified sampling which is done randomly. So the data is generalizable and can represent the populations specially that it is contained of large numbers of data as we saw above a 491775 sized data set.
+The data isn't causal as there is no random assignment as attributes are not assigned randomly or something which mean that is an observational study.
+* * *
+
+## Part 2: Research questions
+
+**Research quesion 1:**
+Is there a relation between marital status and the general health for both genders?
+This can be addressed by exploring the distribution of two geneders with the different marital status and general health using the 3 variables `genhlth`, `sex` and `marital`. 
+
+**Research quesion 2:**
+What is the precentage -probability- that people with excellent health are sleeping less than 6 hours?
+We expect that this will be a low number as sleeping enough time is important to have a good healty. I also expect that it would have a nearly normal distribution as sleeping time must be not so short and not so long.
+This can be addressed using the variables `sleptim1` and `genhlth` 
+
+**Research quesion 3:**
+Is doing exerciese affected with education level and income level?
+This can be addressed using the variables `exerany2`, `income2` and `educa`.
+* * *
+
+## Part 3: Exploratory data analysis
+
+NOTE: Insert code chunks as needed by clicking on the "Insert a new code chunk" 
+button (green button with orange arrow) above. Make sure that your code is visible
+in the project you submit. Delete this note when before you submit your work.
+
+**Research quesion 1:**
+
+First, let's view all possible values in marital, sex and genhlth variables.
+```{r}
+unique(brfss2013$marital)
+unique(brfss2013$sex)
+unique(brfss2013$genhlth)
+```
+Now lets count each sex in each marital state removing NA from them as this has no meaning.
+```{r}
+count_marital <-  count(brfss2013, brfss2013$sex, brfss2013$marital, brfss2013$genhlth)
+names(count_marital) <- c("sex", "marital", "health", "count")
+count_marital_filterd <- filter(count_marital, !is.na(sex), !is.na(marital))
+```
+Now, let's add new col which represents each case. Putting the first char of each var to represent it's type, for example: Male, Married, Excellent will be represented as MME.
+```{r}
+categories_count <- count_marital_filterd %>% mutate(type = paste( substring(count_marital_filterd$health,1,1), substring(count_marital_filterd$sex,1,1), substring(count_marital_filterd$marital,1,1)))
+
+# get type and count cols only
+categories_count <- select(categories_count, type, count)
+
+# sort data by count to make it more visible in priniting
+categories_count <- categories_count %>% arrange(desc(count))
+```
+Now let's make a bar plot and print to see all things together.
+```{r}
+ggplot(data = categories_count, aes(y = factor(type), x = count)) + geom_point()
+```
+The plot shows that more than 50000 are female married and has very good health.
+Now, we will create a plot for each case to see the relations between them.
+
+```{r}
+sex_mar_hel <- select(brfss2013, sex, marital, genhlth)
+sex_mar_hel <- sex_mar_hel %>% group_by(sex, marital, genhlth) %>% summarise(count = n()) %>% filter(!is.na(genhlth))
+```
+
+```{r}
+# filter data of males
+MM <- sex_mar_hel %>% filter(sex == "Male", marital == "Married")
+MD <- sex_mar_hel %>% filter(sex == "Male", marital == "Divorced")
+MW <- sex_mar_hel %>% filter(sex == "Male", marital == "Widowed")
+MN <- sex_mar_hel %>% filter(sex == "Male", marital == "Never married")
+MS <- sex_mar_hel %>% filter(sex == "Male", marital == "Separated")
+MA <- sex_mar_hel %>% filter(sex == "Male", marital == "A member of an unmarried couple")
+# filter data of females
+FM <- sex_mar_hel %>% filter(sex == "Female", marital == "Married")
+FD <- sex_mar_hel %>% filter(sex == "Female", marital == "Divorced")
+FW <- sex_mar_hel %>% filter(sex == "Female", marital == "Widowed")
+FN <- sex_mar_hel %>% filter(sex == "Female", marital == "Never married")
+FS <- sex_mar_hel %>% filter(sex == "Female", marital == "Separated")
+FA <- sex_mar_hel %>% filter(sex == "Female", marital == "A member of an unmarried couple")
+
+# plot
+ ggplot(data = MM, aes(x = factor(genhlth), y = count)) + geom_point()
+ ggplot(data = MD, aes(x = factor(genhlth), y = count)) + geom_point()
+ ggplot(data = MW, aes(x = factor(genhlth), y = count)) + geom_point()
+ ggplot(data = MN, aes(x = factor(genhlth), y = count)) + geom_point()
+ ggplot(data = MS, aes(x = factor(genhlth), y = count)) + geom_point()
+ ggplot(data = MA, aes(x = factor(genhlth), y = count)) + geom_point()
+ ggplot(data = FM, aes(x = factor(genhlth), y = count)) + geom_point()
+ ggplot(data = FD, aes(x = factor(genhlth), y = count)) + geom_point()
+ ggplot(data = FW, aes(x = factor(genhlth), y = count)) + geom_point()
+ ggplot(data = FN, aes(x = factor(genhlth), y = count)) + geom_point()
+ ggplot(data = FS, aes(x = factor(genhlth), y = count)) + geom_point()
+ ggplot(data = FA, aes(x = factor(genhlth), y = count)) + geom_point()
+
+```
+The plots show some how a reasonable relation between marrying status and the general health and it's the same for two genders.
+for example, most of people who are divorced, separated or Widowed has lower general health that ranges between good and very good. The health is  better for couples and married.
+`Conclusion:` the general health depends on the marital status and both together don't depend on gender. So we can estimate the health given marital status but giving the geneder after this will not be useful.
+
+**Research quesion 2:**
+
+```{r}
+# select general health = excellent from data and get their sleep time
+ex_genhlth <- brfss2013 %>% filter(brfss2013$genhlth == "Excellent")
+sleep_time_ex_genhlth <- ex_genhlth %>% select(sleptim1) %>% filter(!is.na(sleptim1))
+# count occurances of each sleep time values
+count_sleep_ex_genhlth <- sleep_time_ex_genhlth %>% group_by(sleptim1) %>% summarise(count = n())
+
+# plot sleep time for excellent general health people
+ggplot(data = sleep_time_ex_genhlth, aes(x = sleptim1)) + geom_histogram(binwidth = 1)
+
+```
+
+As shown it nearly a normal distribution. Now let's find the probability of time sleeping < 6
+```{r}
+# calculate probability of sleeping lower than 6 hours and has a good healthy
+mean_of_samples <- mean(as.numeric(unlist(sleep_time_ex_genhlth)))
+sd_of_samples <- sd(as.numeric(unlist(sleep_time_ex_genhlth)))
+SIX_HOUR_INDEX <- 7
+pnorm(as.numeric(unlist(count_sleep_ex_genhlth$sleptim1)), mean = mean_of_samples, sd = sd_of_samples)[SIX_HOUR_INDEX]
+```
+As we expect, it's a low probability and this is a logic thing as sleeping is important for having a healthy life.
+
+**Research quesion 3:**
+```{r}
+# explore values of income2
+unique(brfss2013$income2)
+```
+
+```{r}
+# remove data with na
+clean_data <- filter(brfss2013, !is.na(exerany2), !is.na(income2), !is.na(educa))
+
+# Find ratio that does any exercise with respect to each income
+ratio_ex_inc <- clean_data %>% group_by(income2) %>% summarise(ratio = sum(exerany2 == "Yes") / n())
+
+# Print to see result
+ratio_ex_inc
+```
+
+```{r}
+# replace space with line break for readability
+levels(ratio_ex_inc$income2) <- gsub(" ", "\n", levels(ratio_ex_inc$income2))
+# plot data
+ggplot(data = ratio_ex_inc, aes(x = income2, y = ratio)) + geom_point()
+```
+The plot shows that the income affects the exercise activity. The higher income is, the more people are doing exercises.
+So increasing income makes people do more exercises.
+
+```{r}
+# explore values of educ
+unique(brfss2013$educa)
+```
+
+```{r}
+# Find ratio that does any exercise with respect to each educa level
+ratio_ex_edu <- clean_data %>% group_by(educa) %>% summarise(ratio = sum(exerany2 == "Yes") / n())
+
+# Print to see result
+ratio_ex_edu
+```
+
+
+```{r}
+# replace space with line break for readability
+levels(ratio_ex_edu$educa) <- gsub(" ", "\n", levels(ratio_ex_edu$educa))
+# plot data
+ggplot(data = ratio_ex_edu, aes(x = educa, y = ratio)) + geom_point()
+```
+
+The plot shows that the education level affects the exercise activity also. The higher income is, the more people are doing exercises.
+So increasing education level makes people do more exercises.
