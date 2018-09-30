@@ -1,0 +1,142 @@
+---
+title: "Statistical inference with the GSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+```
+
+### Load data
+
+Make sure your data and R Markdown files are in the same directory. When loaded
+your data file will be called `gss`. Delete this note when before you submit 
+your work. 
+
+```{r load-data}
+load("gss.RData")
+```
+
+
+
+* * *
+
+## Part 1: Data
+
+GSS questions cover a diverse range of issues including national spending priorities, marijuana use, crime and punishment, race relations, quality of life, confidence in institutions, and sexual behavior.
+It is an observational study where random interviews for non-institutionalized english and spanish speaking people aged 18 and over, using probability sampling were made. Additionally, recently sub-sampling among non-respondents was also utilized.
+This means that this data can be generalized to the entire population but causality cannot be determined as there was no random assignment.
+* * *
+
+## Part 2: Research question
+
+```{r}
+# exploring the data
+dim(gss)
+head(gss)
+str(gss)
+```
+as shown there are 114 different variables and there exist many NA between values.
+Question:
+Is there a relation between one’s highest education level attained and current income?
+this shows the relationship between good education and if it leads to better income.
+* * *
+
+## Part 3: Exploratory data analysis
+
+```{r}
+gss_deg_inc <- gss%>%select(degree, coninc)
+# remove null rows
+gss_di_complete <- gss_deg_inc[complete.cases(gss_deg_inc),] 
+```
+
+```{r}
+summary(gss_di_complete)
+prop.table(summary(gss_di_complete$degree))
+prop.table(summary(gss_di_complete$coninc))
+
+g <- ggplot(gss_di_complete, aes(coninc))
+g + geom_density() + labs(title = "Distribution of income") + labs(x = "Total income", y = "Density")
+```
+Income distribution is bimodal and right skewed, with a peak at approximately $25,000 and another at the extreme right tail, with a gap between $125,000 and $160,000
+to make it unimodal and remove possible outliers, let's remove rows with conic < mean + 3 SD and > mean - 3 SD
+```{r}
+conic_sd <- sd(gss_di_complete$coninc)
+mean <- mean(gss_di_complete$coninc)
+gss_q1 <- subset(gss_di_complete, (coninc < (mean + 3*conic_sd)) &( coninc > (mean-3*conic_sd)))
+
+summary(gss_q1)
+prop.table(summary(gss_q1$degree))
+prop.table(summary(gss_q1$coninc))
+
+g2 <- ggplot(gss_q1, aes(coninc))
+g2 + geom_density() + labs(title = "Distribution of income") + labs(x = "Total income", y = "Density")
+```
+A majority of the US population has an education level of high school and below (~73%). Approximately 6% attain a Junior College, while about 21% hold a bachelor or higher degreee. 
+
+The median income is $35471, with a mean of $42172, and range of $383 - $151053
+
+
+```{r}
+ggplot(gss_q1, aes(factor(gss_q1$degree), gss_q1$coninc, fill = degree, alpha = 0.8)) + 
+  geom_boxplot() +
+  ggtitle('Total income by education level') +
+  xlab('Education level') + ylab('Total income') +
+  scale_fill_brewer(name = "Education level")
+
+g3 <- ggplot(gss_q1, aes(coninc, fill = degree))
+g3 + geom_density (alpha = 0.2) + labs(title = "Income distributions across education levels") + labs(x = "Total income", y = "Density")
+
+
+```
+As shown The box plots suggest a significant and positive relationship between higher education and income, There are also a few outliner with the lower levels of education. This are certainly valid case, if we consider school dropouts as Steve Jobs (never finished college) or Bill Gates (never finished University). 
+This also strongly indicated by the overlap plot where lower education have more density at the lower income and viceversa. 
+* * *
+
+## Part 4: Inference
+
+We need to compare multiple means so we need to use ANOVA method.
+**H0:** u1 = u2 = u3 = u4 = u5, The mean income is the same across all levels of education.
+**HA** At least one pair of mean incomes are different from each other.
+
+**Conditions:**
+
+```{r}
+# plot each group distiribution
+par(mfrow = c(3,2))
+qqnorm(gss_q1$coninc[gss_q1$degree == "Lt High School"], main = "Lt High School", col = 'blue')
+qqline(gss_q1$coninc[gss_q1$degree == "Lt High School"], col = 'red')
+qqnorm(gss_q1$coninc[gss_q1$degree == "High School"], main = "High School", col = 'darkgreen')
+qqline(gss_q1$coninc[gss_q1$degree == "High School"], col = 'red')
+qqnorm(gss_q1$coninc[gss_q1$degree == "Junior College"], main = "Junior College", col = 'orange')
+qqline(gss_q1$coninc[gss_q1$degree == "Junior College"], col = 'red')
+qqnorm(gss_q1$coninc[gss_q1$degree == "Bachelor"], main = "Bachelor", col = 'brown')
+qqline(gss_q1$coninc[gss_q1$degree == "Bachelor"], col = 'red')
+qqnorm(gss_q1$coninc[gss_q1$degree == "Graduate"], main = "Graduate", col = 'magenta')
+qqline(gss_q1$coninc[gss_q1$degree == "Graduate"], col = 'red')
+```
+
+
+1. Independence:
+  - within groups: exist as it's randomly sampled and n < 10% of the population for each group
+  - between groups: exist
+2. Approximate Normality: exist, the normal probability plots for each education group show that the data is right skewed and deviates from normality, this is mitigated by the large sample sizes for each education group. 
+3. the previous box plots of income across education levels show roughly equal variance for the High School, Junior College, and Bachelor groups, while the Less than High School group has lower variance and the Graduate group has higher variance.
+
+```{r}
+# doing anova for the gss_q1 data
+inference(y = coninc, x = degree, data = gss_q1, statistic = "mean", type = "ht", null = 0, alternative = "greater", method = "theoretical")
+```
+The F - Distribution with an amount of 2205 and a degree of freedom of 4 is relatively larger. Therefore the p-value will be rather small. Since the p-value is small (less than alpha < 0.0001 < 0.05)- 5% significance level, we reject H0 in favour of the alternative hypothesis HA. The data provides convincing evidence that at least one pair of population means are different from each other.
+
+
